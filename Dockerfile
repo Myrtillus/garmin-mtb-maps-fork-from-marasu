@@ -1,11 +1,10 @@
-FROM ubuntu:18.04
+#FROM ubuntu:18.04
+FROM ubuntu:22.04
 
 # Set up environment and renderer user
 ENV TZ=Europe/Helsinki
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN adduser --disabled-password --gecos "" renderer
-RUN mkdir /osm-data
-RUN chown renderer /osm-data
 
 # Install packages
 RUN apt-get --yes update && \
@@ -14,46 +13,98 @@ RUN apt-get --yes update && \
 	&& apt-get autoremove --yes \
 	&& rm -rf /var/lib/{apt,dpkg,cache,log}/
 
+RUN apt-get install --yes libarchive-tools
+
 # Init user renderer
 USER renderer
-RUN mkdir /home/renderer/download
-RUN mkdir /home/renderer/styles
-
-# Install SPLITTER
-WORKDIR /home/renderer/download
-RUN wget -nv http://www.mkgmap.org.uk/download/splitter-r653.zip
-RUN unzip splitter*.zip
-RUN mv splitter*.zip splitter*/
-RUN mv splitter* splitter
-RUN mv splitter/splitter.jar ../
-RUN mv splitter/lib ../
-
-# Install MKGMAPS
-WORKDIR /home/renderer/download
-RUN wget -nv http://www.mkgmap.org.uk/download/mkgmap-r4912.zip
-RUN unzip mkgmap*.zip
-RUN mv mkgmap*.zip mkgmap*/
-RUN mv mkgmap* mkgmap
-RUN mv mkgmap/mkgmap.jar ../
-RUN cp mkgmap/lib/* ../lib/
 
 # Install OSM data files
-RUN wget -nv http://osm.thkukuk.de/data/bounds-latest.zip -O bounds.zip
-RUN wget -nv http://osm.thkukuk.de/data/sea-latest.zip -O sea.zip
-RUN wget -nv http://download.geonames.org/export/dump/cities15000.zip -O cities.zip
-RUN mv *.zip ../
+WORKDIR /home/renderer/
+
+# RUN wget -nv http://osm.thkukuk.de/data/bounds-latest.zip -O bounds.zip
+# RUN wget -nv http://osm.thkukuk.de/data/sea-latest.zip -O sea.zip
+# RUN wget -nv http://download.geonames.org/export/dump/cities15000.zip -O cities.zip
+
+# TESTAUS VAIHEESSA KOPSATAAN VALMIIT FIlEET
+# wget  http://osm.thkukuk.de/data/bounds-latest.zip -O bounds.zip
+# wget  http://osm.thkukuk.de/data/sea-latest.zip -O sea.zip
+# wget  http://download.geonames.org/export/dump/cities15000.zip -O cities.zip
+
+COPY --chown=renderer bounds.zip /home/renderer/
+COPY --chown=renderer sea.zip /home/renderer/
+COPY --chown=renderer cities.zip /home/renderer/
+
+
+
+
+
+# Install SPLITTER
+RUN mkdir /home/renderer/download_splitter
+WORKDIR /home/renderer/download_splitter
+RUN wget -nv http://www.mkgmap.org.uk/download/splitter-r653.zip
+
+# puretaan zip paketti siten, että yksi kerros hakemistorakenteesta tiputetaan pois
+# niin ei tule ongelmia tuon hakemiston nimen kanssa.
+# Alkuperäinen dockerfile ei toiminut ubuntu 22.04 kanssa
+RUN bsdtar --strip-components=1 -xvf splitter*.zip
+RUN cp splitter.jar ..
+RUN cp -r lib ../splitter_lib
+RUN rm -rf *
+
+
+
+
+# # Install MKGMAPS
+RUN mkdir /home/renderer/download_mkgmap
+WORKDIR /home/renderer/download_mkgmap
+RUN wget -nv http://www.mkgmap.org.uk/download/mkgmap-r4912.zip
+RUN bsdtar --strip-components=1 -xvf mkgmap*.zip
+RUN cp mkgmap.jar ../
+RUN cp -r lib ../mkgmap_lib
+# JOSTAIN SYYSTÄ EI SITTEN MILLÄÄN SUOSTU POISTAMAAN ROSKIA
+#RUN rm -rf *
+
+
+
+# move content from libs directories to common lib
+WORKDIR /home/renderer
+RUN mkdir /home/renderer/lib
+
+# MOVE EI JOSTAIN SYYSTÄ ONNISTU?!?
+RUN cp mkgmap_lib/* lib/
+RUN cp splitter_lib/* lib/
+
 
 # Configure stylesheets
 ARG NOCACHE=0
+RUN mkdir /home/renderer/styles
 WORKDIR /home/renderer/styles
 RUN git clone https://github.com/Myrtillus/Garmin_OSM_TK_map.git .
-RUN mv *.typ ../
-RUN mv TK ../
-RUN mv TK_pathsonly ../
+
+# JA JOSTAIN SYYSTÄ MOOVIT EI TAASKAAN TOIMI
+
+RUN cp *.typ ..
+RUN cp -r TK ..
+RUN cp -r TK_pathsonly ..
+
 
 # Copy scripts
 COPY --chown=renderer *.sh /home/renderer/
 COPY --chown=renderer *.py /home/renderer/
 
+USER root
+RUN mkdir /osm-data
+RUN chown renderer /osm-data
+
+
+# testaus vaiheessa kopsataan valmis file
+# wget  http://download.geofabrik.de/europe/finland-latest.osm.pbf
+COPY --chown=renderer data.osm.pbf /osm-data
+
+RUN mkdir /ready_maps
+RUN chown renderer /ready_maps
+
+
+USER renderer
 WORKDIR /home/renderer
-CMD /home/renderer/generate_maps.sh
+# CMD /home/renderer/generate_maps.sh

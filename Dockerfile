@@ -19,7 +19,6 @@ FROM ubuntu:22.04
 # Set up environment and renderer user
 ENV TZ=Europe/Helsinki
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-#RUN adduser --disabled-password --gecos "" renderer
 
 # Install packages
 RUN apt-get --yes update && \
@@ -28,10 +27,9 @@ RUN apt-get --yes update && \
 	&& apt-get autoremove --yes \
 	&& rm -rf /var/lib/{apt,dpkg,cache,log}/
 
+# ASENTAA bsdtar softan
 RUN apt-get install --yes libarchive-tools
 
-# Init user renderer
-#USER renderer
 
 RUN mkdir /renderer
 WORKDIR /renderer/
@@ -45,9 +43,9 @@ WORKDIR /renderer/
 # wget  http://osm.thkukuk.de/data/sea-latest.zip -O sea.zip
 # wget  http://download.geonames.org/export/dump/cities15000.zip -O cities.zip
 
-COPY --chown=renderer bounds.zip /renderer/
-COPY --chown=renderer sea.zip /renderer/
-COPY --chown=renderer cities.zip /renderer/
+COPY bounds.zip /renderer/
+COPY sea.zip /renderer/
+COPY cities.zip /renderer/
 
 # Install SPLITTER
 RUN mkdir /renderer/download_splitter
@@ -106,9 +104,9 @@ RUN mkdir /osm-data
 # wget  http://download.geofabrik.de/europe/finland-latest.osm.pbf
 # wget  http://download.geofabrik.de/europe/spain/islas-baleares-latest.osm.pbf
 # wget  http://download.geofabrik.de/europe/spain-latest.osm.pbf
-COPY --chown=renderer finland-latest.osm.pbf /osm-data
-COPY --chown=renderer islas-baleares-latest.osm.pbf /osm-data
-COPY --chown=renderer spain-latest.osm.pbf /osm-data
+COPY  finland-latest.osm.pbf /osm-data
+COPY  islas-baleares-latest.osm.pbf /osm-data
+COPY  spain-latest.osm.pbf /osm-data
 
 RUN mkdir /ready_maps
 
